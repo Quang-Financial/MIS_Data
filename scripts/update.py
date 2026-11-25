@@ -11,11 +11,14 @@ def validate(bars,today):
         if i and t-bars[i-1]['t']!=D: raise ValueError('Gap or duplicate')
 def main():
     today=int(dt.datetime.now(dt.timezone.utc).timestamp()*1000)//D*D
-    if not P.exists(): raise SystemExit('Seed required: export existing Bitstamp cache first')
-    old=json.loads(P.read_text())
-    if old['source']!='Bitstamp BTC/USD': raise ValueError('Wrong source')
-    bars=old['bars']; validate(bars,today)
-    start=bars[-1]['t']+D
+    if P.exists():
+        old=json.loads(P.read_text())
+        if old['source']!='Bitstamp BTC/USD': raise ValueError('Wrong source')
+        bars=old['bars']; validate(bars,today)
+        start=bars[-1]['t']+D
+    else:
+        bars=[]
+        start=1313625600000
     while start<today:
         end=min(start+999*D,today-D)
         url=f'https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=1000&start={start//1000}&end={end//1000}&exclude_current_candle=true'
@@ -27,5 +30,6 @@ def main():
     if bars[-1]['t']!=today-D: raise ValueError('Latest completed candle missing')
     raw=json.dumps(dict(source='Bitstamp BTC/USD',bars=bars),separators=(',',':'),allow_nan=False).encode()
     manifest=dict(schema=1,source='Bitstamp BTC/USD',path='data/btcusd-bitstamp.json',sha256=hashlib.sha256(raw).hexdigest(),days=len(bars),first=bars[0]['t'],last=bars[-1]['t'])
+    P.parent.mkdir(parents=True,exist_ok=True)
     P.write_bytes(raw); M.write_text(json.dumps(manifest,separators=(',',':'))+'\n')
 if __name__=='__main__': main()
